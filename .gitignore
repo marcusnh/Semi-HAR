@@ -4,6 +4,8 @@ test_runs/
 run/
 Data/
 *.png
+wandb
+logs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

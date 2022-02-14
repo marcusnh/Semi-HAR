@@ -154,7 +154,7 @@ def confusion_matrix(vali, predict, LABELS, normalize=False):
     plt.xlabel('Predicted Label')
     plt.show()
 
-def show_performance_DNN(history):
+def show_performance(history):
     plt.figure(figsize=(6, 4))
     plt.plot(history.history['accuracy'], 'r', label='Accuracy of training data')
     plt.plot(history.history['val_accuracy'], 'b', label='Accuracy of validation data')
@@ -165,6 +165,22 @@ def show_performance_DNN(history):
     plt.xlabel('Training Epoch')
     plt.ylim(0)
     plt.legend()
+    plt.show()
+
+def history_plot(hist):
+    # Plot the loss and accuracy curves for training and validation 
+    fig, ax = plt.subplots(1,2, figsize=(12, 6))
+    ax[0].plot(hist.history['loss'], color='b', label="Training loss")
+    ax[0].plot(hist.history['val_loss'], color='r', label="Validation loss")
+    legend = ax[0].legend(loc='best', shadow=True)
+    ax[0].set_xlabel('Training epoch')
+
+    ax[1].plot(hist.history['accuracy'], color='b', label="Training accuracy")
+    ax[1].plot(hist.history['val_accuracy'], color='r',label="Validation accuracy")
+    ax[1].set_xlabel('Training epoch')
+    ax[1].set_ylim([0.5,1])
+    legend = ax[1].legend(loc='best', shadow=True)
+    #fig.supxlabel('Training Epoch')
     plt.show()
 
 def execute_TSNE(data, perplexities=[2,5,10,20,50], n_iter=1000, 
@@ -229,4 +245,3 @@ def activity_length(df):
     plt.title('Activity sequences information')
     plt.show()
 
-if __name__ == '__main__':

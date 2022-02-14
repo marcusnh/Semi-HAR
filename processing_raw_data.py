@@ -20,6 +20,8 @@ File for processing the raw data input from differnt datasets
 '''
 OPT_HZ = 20
 def PAMAP2_process_files(data_files_path, dataset_meta):
+    Engine.put("ray")
+    ray.init()
     # For PAMAP2 there are two folders with subject data.
     columns = ['activity_id', 'HR (bpm)',
                  'temp','acc_x','acc_y','acc_z','gyr_x','gyr_y','gyr_z',
@@ -77,17 +79,6 @@ def PAMAP2_process_files(data_files_path, dataset_meta):
 
     # Add data to dictionary and save to pickle:
     # PAMAP_data = PAMAP_df.to_pickle()
-    # users_dict = {}
-    # users = PAMAP_df['subject_id'].unique()
-    # for user in users:
-    #     print(user)
-    #     user_data = PAMAP_df[PAMAP_df['subject_id']==user]
-    #     data_values = user_data[['temp','acc_x','acc_y','acc_z',
-    #             'gyr_x','gyr_y','gyr_z','mag_x','mag_y', 'mag_z']].values
-    #     labels =  user_data['activity_id'].values
-    #     print(data_values)
-    #     print(labels)
-    #     users_dict[user]=[(data_values,labels)]
 
 
     return PAMAP_df
