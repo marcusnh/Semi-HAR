@@ -15,8 +15,8 @@
     "experiment_configs": [
         {
             "type": "Full_SSL_model",
-            "tag": "Run SSL_model with existing SL_model",
-            "previous_config_offset": 0,
+            "tag": "Training full SSL_model with existing SL_model",
+            "teacher_name": "full_train_PAMAP2",
             "previous_model": 0,
             "hyperparameters":{
                 "name": "SL_model_labelled_tuning",

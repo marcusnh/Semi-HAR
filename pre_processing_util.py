@@ -8,6 +8,10 @@ from sklearn import preprocessing
 from scipy import stats
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
+import matplotlib.pyplot as plt
+import heartpy as hp
+from scipy.signal import resample
+import neurokit2 as nk
 
 def downsampling(df,from_hz, to_hz=20):
     df_ds = pd.DataFrame(columns=df.columns)
@@ -63,8 +67,8 @@ def extract_windows(data, window_size, overlap=0.5):
     values = []
     labels = []
     drop_columns =['subject_id', 'activity_id']
-    N_FEATURES = len(data.drop(columns=drop_columns).columns)
-    # N_FEATURES = 3
+    # N_FEATURES = len(data.drop(columns=drop_columns).columns)
+    N_FEATURES = 4
 
     # TODO: finish this
     for i in range(0, len(data)- window_size, overlap):
@@ -74,19 +78,19 @@ def extract_windows(data, window_size, overlap=0.5):
         acc_x = data['acc_x'].values[i: i + window_size]
         acc_y = data['acc_y'].values[i: i + window_size]
         acc_z = data['acc_z'].values[i: i + window_size]
-        gyr_x = data['gyr_x'].values[i: i + window_size]
-        gyr_y = data['gyr_y'].values[i: i + window_size]
-        gyr_z = data['gyr_z'].values[i: i + window_size]
-        mag_x = data['mag_x'].values[i: i + window_size]
-        mag_y = data['mag_y'].values[i: i + window_size]
-        mag_z = data['mag_z'].values[i: i + window_size]
+        # gyr_x = data['gyr_x'].values[i: i + window_size]
+        # gyr_y = data['gyr_y'].values[i: i + window_size]
+        # gyr_z = data['gyr_z'].values[i: i + window_size]
+        # mag_x = data['mag_x'].values[i: i + window_size]
+        # mag_y = data['mag_y'].values[i: i + window_size]
+        # mag_z = data['mag_z'].values[i: i + window_size]
         hr_bpm = data['HR (bpm)'].values[i: i + window_size]
-        temp = data['temp'].values[i: i + window_size]
+        # temp = data['temp'].values[i: i + window_size]
 
 
-        # values.append([acc_x, acc_y, acc_z])
-        values.append([acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z, mag_x, mag_y,
-                        mag_z, hr_bpm, temp ])
+        values.append([acc_x, acc_y, acc_z, hr_bpm])
+        # values.append([acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z, mag_x, mag_y,
+        #                 mag_z, hr_bpm, temp ])
   
 
     # reshape into an array with x rows and columns equal to window_size, and seperate for each feature 
@@ -151,4 +155,33 @@ def split_data(segments_array, segments_labels, train_size, test_size):
     return np_train, np_val, np_test
 
 
-    
+def ECG_to_HR(df, sample_rate=50):
+    '''
+    Inspiration from https://github.com/neuropsychology/NeuroKit/blob/master/docs/examples/heartbeats.ipynb
+
+    '''
+    print('Extracting HR from ECG signals')
+    print('This may take some time')
+
+    ecg = df[['ECG_1', 'ECG_2']].mean(axis=1).to_numpy()
+    # Differnet cleaning methods;
+    # signals = pd.DataFrame({"ECG_Raw" : ecg,
+    #                          "ECG_NeuroKit" : nk.ecg_clean(ecg, sampling_rate=50, method="neurokit"),
+    #                         #  "ECG_BioSPPy" : nk.ecg_clean(ecg, sampling_rate=100, method="biosppy"),
+    #                         #  "ECG_PanTompkins" : nk.ecg_clean(ecg, sampling_rate=50, method="pantompkins1985"),
+    #                         #  "ECG_Hamilton" : nk.ecg_clean(ecg, sampling_rate=50, method="hamilton2002"),
+    #                         #  "ECG_Elgendi" : nk.ecg_clean(ecg, sampling_rate=50, method="elgendi2010"),
+    #                         #  "ECG_EngZeeMod" : nk.ecg_clean(ecg, sampling_rate=500, method="engzeemod2012")
+    #                          })
+    # signals.plot() #doctest: +ELLIPSIS
+
+    # Automatically process the (raw) ECG signal
+    ecg_signals, info = nk.ecg_process(ecg, sampling_rate=sample_rate)
+    # plot = nk.ecg_plot(ecg_signals, sampling_rate=sample_rate)
+    df.insert(loc=len(df.columns)-1, column='HR (bpm)', value=(ecg_signals['ECG_Rate']))
+    # Remove ECG signals
+    df = df.drop(columns=['ECG_1', 'ECG_2'])
+    # # print(df['HR (bpm)'].value_counts())
+    # plt.show()
+
+    return df

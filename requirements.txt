@@ -19,3 +19,4 @@ keras_tuner==1.1.0
 pyarrow==6.0.1
 dask==2022.1.1
 modin[dask]
+tables==3.7.0

@@ -1,6 +1,7 @@
 {"PAMAP2": {
     "name": "PAMAP2", 
-    "dataset_home_page": "http://archive.ics.uci.edu/ml/datasets/pamap2+physical+activity+monitoring", "source_url": "http://archive.ics.uci.edu/ml/machine-learning-databases/00231/PAMAP2_Dataset.zip", 
+    "dataset_home_page": "http://archive.ics.uci.edu/ml/datasets/pamap2+physical+activity+monitoring", 
+    "source_url": "http://archive.ics.uci.edu/ml/machine-learning-databases/00231/PAMAP2_Dataset.zip", 
     "file_name": "PAMAP2_Dataset.zip", 
     "default_folder_path": "PAMAP2_Dataset", 
     "save_file_name": "pamap2.pkl", 
@@ -22,7 +23,25 @@
      
 "MHEALTH": 
     {"name": "MHEALTH", 
-    "dataset_home_page": "http://archive.ics.uci.edu/ml/datasets/mhealth+dataset", "source_url": "http://archive.ics.uci.edu/ml/machine-learning-databases/00319/MHEALTHDATASET.zip", 
+    "dataset_home_page": "http://archive.ics.uci.edu/ml/datasets/mhealth+dataset", 
+    "source_url": "http://archive.ics.uci.edu/ml/machine-learning-databases/00319/MHEALTHDATASET.zip", 
+    "file_name": "MHEALTH_Dataset.zip", 
+    "default_folder_path": "MHEALTHDATASET", 
+    "save_file_name": "MHEALTH.pkl", 
+    "label_list": {"standing":1, "sitting":2, "lying":3, "walking":4,
+                   "ascending stairs":5,"waist bends forward":6, 
+                   "frontal elevation of arms":7,"crouching":8,
+                   "cycling":9, "jogging":10,"running":11, 
+                    "jumping":12}, 
+    "sensor_labels": ["acc_x","acc_y","acc_z", "HR (bpm)"],
+    "has_null_class": true, 
+    "columns_needed": [0, 1, 2, 3, 4, 23], 
+    "sampling_rate": 50.0, 
+    "unit": 1},
+
+"Hypersension": 
+    {"name": "Hypersension", 
+    "dataset_home_page":"Missing", 
     "file_name": "MHEALTHDATASET.zip", 
     "default_folder_path": "MHEALTHDATASET", 
     "save_file_name": "MHEALTH.pkl", 
@@ -34,6 +53,6 @@
     "sensor_labels": ["temp","acc_x","acc_y","acc_z",
         "gyr_x","gyr_y","gyr_z","mag_x","mag_y", "mag_z"],
     "has_null_class": true, 
-    "columns_needed": [0, 1, 2, 3, 4, 5, 6, 23], 
-    "sampling_rate_IMU": 9.0, 
+    "columns_needed": [0, 1, 2, 3, 4, 23], 
+    "sampling_rate": 50.0, 
     "unit": 1}}

@@ -1,4 +1,7 @@
+from matplotlib.cbook import print_cycles
 import pandas as pd
+from modin.config import Engine
+import ray
 import numpy as np
 import matplotlib as mlt
 import matplotlib.pyplot as plt
@@ -6,6 +9,9 @@ import seaborn as sns
 
 from sklearn.manifold import TSNE
 from sklearn import metrics
+
+import json
+import time
 
 
 
@@ -245,3 +251,39 @@ def activity_length(df):
     plt.title('Activity sequences information')
     plt.show()
 
+
+def hypersension_process_files(data_files_path, dataset_meta):
+    df_list = []
+    # TODO: read files in folder
+    # with pd.HDFStore(data_files_path) as hdf:
+    # # This prints a list of all group names:
+    #     print(hdf.keys())
+    #     keys = hdf.keys()
+    # for i in keys:
+    #     print_cycles(i)
+    #     if i == '/data':
+    #         continue
+    #     df = pd.read_hdf(data_files_path, key=i )
+    #     print(df)
+    store = pd.HDFStore(data_files_path)
+    print(store.keys())
+    print(store.info())
+    # df = pd.DataFrame(np.random.randn(5,6), columns=['A', 'B', 'C',])
+    # store.put('/imu', df, )
+    print(store.get('/imu'))
+    # print(df)
+ 
+if __name__ == "__main__":
+    # When using modin
+    with open('DATASET_META.json') as json_file:
+        DATASET_METADATA = json.load(json_file)
+        
+    print('Run Test')
+    start_time = time.time()
+    path = 'Data/Deltaker_02_01_24h_g2_preprocessed.hdf'
+    # process data and save to pickle
+    # Engine.put("ray")
+    # ray.init()
+    hypersension_process_files(path, DATASET_METADATA['Hypersension'])
+    print('Runtime:')
+    print("--- %s seconds ---" % (time.time() - start_time))

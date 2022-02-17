@@ -5,7 +5,7 @@ from modin.config import Engine
 import ray
 import numpy as np
 import matplotlib.pyplot as plt
-from pre_processing_util import downsampling,upsampling
+from pre_processing_util import ECG_to_HR, downsampling,upsampling
 import cProfile
 import re
 import json
@@ -29,7 +29,6 @@ def PAMAP2_process_files(data_files_path, dataset_meta):
     columns_needed = dataset_meta['columns_needed']
     sub_folders = ['Protocol','Optional']
 
-    sub_folder_2 = 'Optional' # additional activites in here: computer wide range of everyday, household and sport activities
     # Parse through both subfolders:
     df_list = []
     for sub_folder in (sub_folders):
@@ -71,6 +70,7 @@ def PAMAP2_process_files(data_files_path, dataset_meta):
 
     # Combine dataframes:
     PAMAP_df = pd.concat(df_list)
+    # PAMAP_df.to_csv('Data/PAMAP2.csv')
 
     # print meory usage:
     print(PAMAP_df.info(memory_usage="deep"))
@@ -83,16 +83,72 @@ def PAMAP2_process_files(data_files_path, dataset_meta):
 
     return PAMAP_df
 
-if __name__ == '__main__':
-    # When using modin
+def MHEALTH_process_files(data_files_path, dataset_meta):
     Engine.put("ray")
     ray.init()
+    # costume column labels needed
+    columns_labels = ['acc_x','acc_y','acc_z', 'ECG_1', 'ECG_2', 'activity_id']
+    columns_needed = dataset_meta['columns_needed']
+    df_list = []
+    for file in os.scandir(data_files_path):
+        if file.is_file() and (not '.txt' in file.path):
+            print(f'Extracting file {file.path}')
+            df = pd.read_csv(file.path, header=None, sep='\t', engine='python')
+
+            # Add wanted columns and names
+            df = df[columns_needed]
+            df.columns = columns_labels
+
+            
+
+            # Extract HR (bpm) from ECG:
+            df = ECG_to_HR(df)
+          
+            # Add subject_iD: 
+            subject_id = int('10'+file.path[-5:-4])
+            df.insert(loc=0,column='subject_id', value=([subject_id]*len(df)))
+           
+            # Remove activity_id = 0
+            df = df[df.activity_id !=0]
+
+            # Downsampling of IMU and ECG to 20 Hz
+            df = downsampling(df, dataset_meta['sampling_rate'],OPT_HZ)
+            # Drop NaN values
+            df = df.dropna()
+
+            # Reduce memory size with .to_numeric
+            int_cols = ['subject_id','activity_id']
+            cols = df.columns.drop(int_cols)
+            df[cols] = df[cols].apply(pd.to_numeric, errors='coerce', downcast="float")
+            df[int_cols] = df[int_cols].apply(pd.to_numeric, errors='coerce', downcast="unsigned")
+            
+          
+            # print('done')
+            # Done processing raw dat file, append to list:
+            df_list.append(df)
+
+    # Combine dataframes:
+    MHEALTH_df = pd.concat(df_list)
+    MHEALTH_df.to_csv('Data/MHEALTH.csv')
+
+    # print meory usage:
+    print(MHEALTH_df.info(memory_usage="deep"))
+    print(MHEALTH_df['subject_id'].value_counts())
+    print(MHEALTH_df['activity_id'].value_counts())
+    print(MHEALTH_df)
+    return MHEALTH_df
+            
+
+
+
+if __name__ == '__main__':
+    # When using modin
     with open('DATASET_META.json') as json_file:
         DATASET_METADATA = json.load(json_file)
     print('Run Test')
     start_time = time.time()
-    path = 'test_runs/original_data/PAMAP2/PAMAP2_Dataset'
+    path = 'test_runs/original_data/MHEALTH/MHEALTHDATASET'
     # process data and save to pickle
-    PAMAP2_process_files(path, DATASET_METADATA['PAMAP2'])
+    MHEALTH_process_files(path, DATASET_METADATA['MHEALTH'])
     print('Runtime:')
     print("--- %s seconds ---" % (time.time() - start_time))

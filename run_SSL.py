@@ -3,6 +3,7 @@ from cgi import test
 import os
 import glob
 import argparse
+from click import Path
 from matplotlib.font_manager import json_dump
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,6 +13,7 @@ import datetime
 import pickle
 import json
 import time
+from simplejson import load
 import tensorflow as tf
 import ray
 from model_config import create_DNN_model, load_model
@@ -48,7 +50,7 @@ LABEL_DICT = {
                  'waist bends forward'],0],
     'medium_int': [['walking', 'nordic walking',"ascending stairs","descending stairs",
      'vacuum cleaning','house cleaning', 'crouching'],1],
-    'high_int': [['running', 'cycling', 'playing soccer', 'rope jumping', 'jumping',
+    'high_int': [['running', 'jogging', 'cycling', 'playing soccer', 'rope jumping', 'jumping',
     ],2]
 }
 
@@ -63,9 +65,11 @@ def get_parser():
                             .\SSL_model: Semi-supervised learning system for the unlabelled dataset.')
     parser.add_argument('--config', default='experiments/test_model.json',
                         help='Congif files for training of differnt DL models.')
-    parser.add_argument('--labelled_dataset_path', default='test_runs/processed_data/PAMAP2_processed.pkl', type=str, 
+    parser.add_argument('--labelled_dataset', default='PAMAP2', type=str,
+                        choices=['PAMAP2', 'MHEALTH', None], 
                         help='Name of the labelled dataset for training and fine-tuning')
-    parser.add_argument('--unlabelled_dataset_path', default='run/processed_datasets/MHEALTH_processed.pkl', type=str, 
+    parser.add_argument('--unlabelled_dataset', default='MHEALTH', type=str, 
+                        choices=['PAMAP2', 'MHEALTH', None], 
                         help='Name of the unlabelled dataset to self-training and self-supervised training, ignored if only supervised training is performed.')
     # TODO: add an argument for WandB if needed
     parser.add_argument('--dataset', default="PAMAP2", 
@@ -104,20 +108,78 @@ def pre_processing(data_path, dataset_meta,  train_size=0.8, test_size=0.5):
         'output_shape': output_shape,
         'label_map': label_map}
 
-def check_if_model_exsists(run_tag, models_dir):
-    model_path = glob.glob(models_dir +"/*"+run_tag+"*.hdf5", recursive=True)
-    hp_path = glob.glob(models_dir +"/*"+run_tag+"*.pkl", recursive=True)
-    if not (model_path and hp_path):
+def get_dataset_path(dataset_name, dataset_dir):
+    path = glob.glob(dataset_dir +"/"+dataset_name+"*", recursive=True)
+    print(path)
+    if not path:
+        print(f'There exsits no dataset in path:\n {path}')
+        print(f'Need to get data from file run_data_generator.py')
+        return None
+    else:
+        return path[0]
+
+def get_datasets(args, DATASET_METADATA, working_directory):
+    '''
+    This function is used to extract the labelled and unlabelled datasets.
+    The preprocessing is happening in function pre_processing.
+
+    INPUT: 
+    OUTPUT:
+    '''
+    datasets = {}
+    dataset_dir = os.path.join(working_directory,'processed_data')
+
+    for i, dataset in zip(['labelled', 'unlabelled']
+                ,[args.labelled_dataset, args.unlabelled_dataset]):
+        print(i, dataset)
+
+        dataset_path = get_dataset_path(dataset,dataset_dir)
+        print(f'Pre-processing {i} dataset {dataset}')
+        datasets[i] = pre_processing(dataset_path, DATASET_METADATA[dataset],
+                                             train_size=0.8, test_size=0.5)
+        # TODO: remove down to print:
+        pre_processed_path = os.path.join(working_directory, 'pre_processed_data')
+        print("pre_processed_path: ", pre_processed_path)
+        if not os.path.exists(pre_processed_path):
+            os.mkdir(pre_processed_path)
+        file = pre_processed_path+'/'+DATASET_METADATA[dataset]['default_folder_path']+'.pkl'
+        with open(file, 'wb') as f:
+            pickle.dump(datasets[i],f)
+        #
+        print(f'Done pre-processing dataset {dataset}')
+
+    print('Done pre-processing all datasets.')
+
+
+
+
+def check_if_model_exsists(run_tag, run_type, models_dir):
+    paths =[]
+    if run_type == 'SL_model':
+        model_path = glob.glob(models_dir +"/*"+run_tag+"*.hdf5", recursive=True)
+        hp_path = glob.glob(models_dir +"/*"+run_tag+"*.pkl", recursive=True)
+        paths.append(model_path[0])
+        paths.append(hp_path[0])
+
+    elif run_type == 'Full_SSL_model':
+        model_path = glob.glob(models_dir +"/"+run_tag+".hdf5", recursive=True)
+        hp_path = None
+        paths.append(model_path[0])
+
+    if not (model_path or hp_path):
         print(f'No model for this experiment.')
         print(f'Need to create model before it can be evaluated.')
         return None  
     if len(model_path)>1:
         print('Several similar models. Choosing newest model.')
-    paths =[]
-    paths.append(model_path[0])
-    paths.append(hp_path[0])
+   
+   
     return paths
 
+def mix_datasets(datasets):
+
+
+    return 
 
 ###################################################################################
 # Basic DL Steps:
@@ -130,7 +192,8 @@ def check_if_model_exsists(run_tag, models_dir):
 ###################################################################################
 
 if __name__ == '__main__':
-    print('Starting Test')
+
+    print('Starting Experiment')
     Engine.put("ray")
     ray.init()
     start_time = time.time()
@@ -151,15 +214,11 @@ if __name__ == '__main__':
     models_dir = os.path.join(working_directory, MODELS_DIR)
     if not os.path.exists(models_dir):
         os.mkdir(models_dir)
+    # Load datasets and do necessary preprocessing:
+    datasets = get_datasets(args, DATASET_METADATA, working_directory)
 
-    datasets = {}
-    print(f'Pre-processing dataset {dataset}')
-    # TODO: remove comments
-    # datasets['labelled'] = pre_processing(args.labelled_dataset_path, 
-    #                                       DATASET_METADATA[dataset],
-    #                                      train_size=0.8, test_size=0.5)
-    print('Done pre-processing.')
-                         
+    
+                    
     # print(datasets['labelled'])
     # #TODO: remove 
     # with open('Data/PAMAP2_pre_processed.pkl', 'wb') as f:
@@ -216,9 +275,9 @@ if __name__ == '__main__':
             if run['full_train']:
                 # evaluate model
                 # Check if model exists
-                paths = check_if_model_exsists(prev_model, models_dir)
+                paths = check_if_model_exsists(prev_model, type, models_dir)
                 if paths == None:
-                    print(f'Exiting given experiment {run["type"]}')
+                    print(f'Exiting given experiment {type}')
                     continue
                     # TODO: run a create model function?
                 else:
@@ -238,19 +297,24 @@ if __name__ == '__main__':
 
 
         elif type == 'Full_SSL_model':
-            print(f'Running experiment type {run["type"]}')
             # TODO: Check if model exists and if not create model. 
             print('Checking if a teacher model exists')
             # Check if model exists
-            paths = check_if_model_exsists(prev_model, models_dir)
+            print(run['teacher_name'])
+            paths = check_if_model_exsists(run['teacher_name'], type, models_dir)
             if paths == None:
                 continue
             else:
                 model_path = paths[0]
-                hp_path = paths[1]
+                print(f'Loading model: {model_path}')
+                teacher_model = load_model(path=model_path)
+            teacher_model.summary()
+
+
             # STEP 2: create a mix dataset from labelled dataset D and unlabelled
             # dataset U after removing labels from dataset D. This crates dataset B
             # TODO: create function mix_dataset
+            dataset_u = mix_datasets(datasets)
             # STEP 3: Pesudo-labelling of dataset B.
             # Two possibilities:
                 # 1) Simple self-labeling: run teacher model.predict on dataset B 
@@ -270,7 +334,7 @@ if __name__ == '__main__':
                 # combine samples into a larger dataset D'
             # STEP 5:Train a Student model on Dataset D' and fine tune the model
             # STEP 6: Evaluate on dataset D for confirmation.
-            break 
+            break
         elif type == 'SSL_model':
             print('Run whole process (All steps)')
         else:

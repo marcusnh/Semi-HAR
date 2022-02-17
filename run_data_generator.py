@@ -10,8 +10,7 @@ from tqdm import tqdm
 from sys import get_asyncgen_hooks
 from venv import create
 from webbrowser import get
-from processing_raw_data import PAMAP2_process_files
-
+from processing_raw_data import *
 __author__ = "Marcus Notø"
 
 '''
@@ -27,10 +26,10 @@ def get_parser():
         description='Downloading HAR datasets from public databases and processing datasets')
     parser.add_argument('--working_directory', default='test_runs',
                         help='Directory for where the download and processed datasets are stored')
-    parser.add_argument('--mode', default='download', 
+    parser.add_argument('--mode', default='process', 
                         choices=['download', 'process', 'download_and_process'],
                         help='Which mode to run for the script.\ndownload: download the dataset(s).\nprocess: process the donwloaded dataset(s)')
-    parser.add_argument('--dataset', default='all', 
+    parser.add_argument('--dataset', default='MHEALTH', 
                         choices=['PAMAP2', 'MHEALTH', 'all'], 
                         help='name of the dataset to be downloaded/processed')
     parser.add_argument('--data_directory', default='', 
@@ -122,15 +121,14 @@ def process_dataset(data_path_orginal, data_path_processed,  dataset_meta):
     if data_name == 'PAMAP2':
         df = PAMAP2_process_files(org_data_path, dataset_meta)
     elif data_name == 'MHEALTH':
-        print('Create function for processing raw MHEALTH')
-        return
+        df = MHEALTH_process_files(org_data_path, dataset_meta)
     else:
         print(f'Dataset {data_name} has no raw processing function.')
         print(f'Exiting program.')
         return 
     # save file
     df.to_pickle(path_pickle)
-    print(f'Dataset {data_name} is processed an saved to {org_data_path}')
+    print(f'Dataset {data_name} is processed an saved to {path_pickle}')
 
 
 
@@ -169,4 +167,3 @@ if __name__ == '__main__':
             process_dataset(dataset_directory_orginal, dataset_directory_processed, DATASET_METADATA[dataset])
         
         print('Finished generating datasets.')
-    # data = download_data(args.data_directory, DATASET_METADATA)
