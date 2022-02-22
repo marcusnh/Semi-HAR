@@ -150,9 +150,12 @@ if __name__ == '__main__':
             datasets = [args.dataset]
         
         for dataset in datasets:
-            print("Initiating downloading of chosen dataset\n")
-            print(f"-------- Downloading {dataset} --------")
-            download_data(dataset_directory_orginal, DATASET_METADATA[dataset])
+            try:
+                print("Initiating downloading of chosen dataset\n")
+                print(f"-------- Downloading {dataset} --------")
+                download_data(dataset_directory_orginal, DATASET_METADATA[dataset])
+            except Exception as e:
+                print('Failed to download dataset: ', e)
         print('Done Downloading')
 
     if args.mode == 'process' or args.mode == 'download_and_process':

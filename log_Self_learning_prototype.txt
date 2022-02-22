@@ -1,0 +1,42 @@
+Epoch 1/10
+134/134 [==============================] - 2s 15ms/step - loss: 0.1140 - accuracy: 0.9805 - val_loss: 0.1185 - val_accuracy: 0.9759
+Epoch 2/10
+134/134 [==============================] - 2s 14ms/step - loss: 0.1103 - accuracy: 0.9817 - val_loss: 0.1183 - val_accuracy: 0.9717
+Epoch 3/10
+134/134 [==============================] - 2s 13ms/step - loss: 0.1071 - accuracy: 0.9825 - val_loss: 0.1145 - val_accuracy: 0.9769
+Epoch 4/10
+134/134 [==============================] - 2s 13ms/step - loss: 0.1088 - accuracy: 0.9817 - val_loss: 0.1251 - val_accuracy: 0.9591
+Epoch 5/10
+134/134 [==============================] - 2s 13ms/step - loss: 0.1042 - accuracy: 0.9835 - val_loss: 0.1211 - val_accuracy: 0.9622
+Epoch 6/10
+134/134 [==============================] - 2s 13ms/step - loss: 0.1071 - accuracy: 0.9819 - val_loss: 0.1108 - val_accuracy: 0.9748
+Epoch 7/10
+134/134 [==============================] - 2s 14ms/step - loss: 0.1038 - accuracy: 0.9852 - val_loss: 0.1164 - val_accuracy: 0.9643
+Epoch 8/10
+134/134 [==============================] - ETA: 0s - loss: 0.1044 - accuracy: 0.9847Restoring model weights from the end of the best epoch: 3.
+134/134 [==============================] - 2s 14ms/step - loss: 0.1044 - accuracy: 0.9847 - val_loss: 0.1174 - val_accuracy: 0.9748
+Epoch 00008: early stopping
+Evaluating dataset:
+Classification report for test data
+              precision    recall  f1-score   support
+
+     low_int       0.56      1.00      0.72      1104
+  medium_int       0.54      0.06      0.11       796
+    high_int       0.92      0.39      0.55       280
+
+    accuracy                           0.58      2180
+   macro avg       0.67      0.48      0.46      2180
+weighted avg       0.60      0.58      0.47      2180
+
+Confusion matrix:
+
+ ********Confusion Matrix********
+[[1.         0.         0.        ]
+ [0.92839196 0.05904523 0.01256281]
+ [0.46428571 0.14285714 0.39285714]]
+69/69 [==============================] - 0s 3ms/step - loss: 1.5206 - accuracy: 0.5784
+loss: 152.06%
+accuracy: 57.84%
+Folder wandb was removed
+Runtime:
+--- 339.3908221721649 seconds ---
