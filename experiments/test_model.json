@@ -13,13 +13,14 @@
     ],
     "tag": "test_SL_model",
     "experiment_configs": [
+
         {
             "type": "Full_SSL_model",
             "tag": "Training full SSL_model with existing SL_model",
-            "teacher_name": "full_train_PAMAP2",
+            "teacher_name": "full_train_MHEALTH",
             "previous_model": 0,
             "hyperparameters":{
-                "name": "SL_model_labelled_tuning",
+                "name": "self_labelled_tuning",
                 "neurons":{ "min_value":32,
                             "max_value":512,
                              "step": 32},
@@ -34,6 +35,57 @@
                 },
             
             "hp_tune": false,
+            "use_unlabelled": true,
+            "full_train": true,
+            "test_performance": true,
+            "transform_data": false
+        },
+                
+        {
+            "type": "SL_model",
+            "tag": "Labelled_hp_training_tuning",
+            "teacher_name": "full_train_MHEALTH",
+            "hyperparameters":{
+                "group_name": "SL_model_labelled_tuning",
+                "neurons":{ "min_value":32,
+                            "max_value":512,
+                             "step": 32},
+                "leanring_rate":{"values":[1e-2, 1e-3, 1e-4]},
+                "optimizer": ["adam"],
+                "batch_size":{ "min_value":32,
+                            "max_value":512,
+                             "step": 32,
+                            "default": 62},
+                "epochs": 10
+
+                },
+            
+            "hp_tune": true,
+            "use_unlabelled": true,
+            "full_train": true
+        },
+       
+        {
+            "type": "SL_model",
+            "tag": "Labelled_hp_training_tuning",
+            "previous_config_offset": 0,
+            "previous_model": 0,
+            "hyperparameters":{
+                "group_name": "SL_model_labelled_tuning",
+                "neurons":{ "min_value":32,
+                            "max_value":512,
+                             "step": 32},
+                "leanring_rate":{"values":[1e-2, 1e-3, 1e-4]},
+                "optimizer": ["adam"],
+                "batch_size":{ "min_value":32,
+                            "max_value":512,
+                             "step": 32,
+                            "default": 62},
+                "epochs": 5
+
+                },
+            
+            "hp_tune": true,
             "use_unlabelled": true,
             "full_train": true
         },

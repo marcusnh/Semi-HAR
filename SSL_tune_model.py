@@ -14,7 +14,7 @@ import wandb
 from wandb.keras import WandbCallback
 import pickle
 
-from model_config import *
+from SL_model_config import *
 
 MODEL_PATH = 'wandb'
 class Model_Tuner(kt.Tuner):
@@ -43,7 +43,7 @@ class Model_Tuner(kt.Tuner):
         print(wandb.util.generate_id())
         ## Initiates new run for each trial on the dashboard of Weights & Biases
         run = wandb.init(project="Semi-Har",
-                        group=hyperparameters['tag'],
+                        group=hyperparameters['name'],
                          config=hp.values)
 
         ## WandbCallback() logs all the metric data such as
@@ -61,7 +61,7 @@ class Model_Tuner(kt.Tuner):
                   epochs=hyperparameters['epochs'],
                   validation_data=(testX,testY),
                 #   validation_ratio=0.1,
-                  callbacks=[WandbCallback(),History()])  
+                  callbacks=[WandbCallback()])  
 
         ## if val_accurcy used, use the val_accuracy of last epoch model which is fully trained
         val_acc = history.history['val_accuracy'][-1]  ## [-1] will give the last value in the list
@@ -100,18 +100,19 @@ def  run_tuner(model, training_data, test_data, hp, run_wandb=True):
     if run_wandb:
         ## set the objective of tuning algorithm
         objective = 'val_accuracy'
-        run_path = os.path.join(MODEL_PATH,hp["name"] )
+        run_path = os.path.join(MODEL_PATH, hp["name"])
         if not os.path.exists(run_path):
             os.mkdir(run_path)
 
-        ## instantiate the new Tuner with tuning algorithm and required parameters
+        ## Instantiate the new Tuner with tuning algorithm and required parameters
         tuner = Model_Tuner(
             oracle=kt.oracles.Hyperband(
                 objective=objective,
-                #max_epochs=5,
+                max_epochs=5,
                 hyperband_iterations=1),
             hypermodel=model,
             directory=run_path)
+
         tuner.search_space_summary()
 
         tuner.search(trainX, trainY, testX, testY, 

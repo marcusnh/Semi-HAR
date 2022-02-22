@@ -1,6 +1,9 @@
 from cProfile import label
 from cgi import test
 import os
+import sys
+import shutil
+import gc
 import glob
 import argparse
 from click import Path
@@ -16,11 +19,13 @@ import time
 from simplejson import load
 import tensorflow as tf
 import ray
-from model_config import create_DNN_model, load_model
-from train_model import train_model
+from SL_model_config import create_DNN_model, load_model
+from SSL_train_model import train_model, evaluate_model
 
 from pre_processing_util import * #extract_windows, map_activity_intensity, extract_user_values
-from tune_model import run_tuner
+from SSL_tune_model import run_tuner
+from sklearn.utils import shuffle
+from sklearn.model_selection import train_test_split
 __author__ = "Marcus Notø"
 
 '''
@@ -59,22 +64,16 @@ def get_parser():
         description=' Creating DL model with supervised or semi-supervised models')
     parser.add_argument('--working_directory', default='test_runs',
                         help='Directory containing datasets, trained models and training logs')
-    parser.add_argument('--mode', default='SL_model', 
-                        choices=['SL_model', 'SSL_model'],
-                        help='Which mode to run for the script.\SL_model: Create a supervise model for labelled dataset \
-                            .\SSL_model: Semi-supervised learning system for the unlabelled dataset.')
+    
     parser.add_argument('--config', default='experiments/test_model.json',
                         help='Congif files for training of differnt DL models.')
-    parser.add_argument('--labelled_dataset', default='PAMAP2', type=str,
+    parser.add_argument('--labelled_dataset', default='MHEALTH', type=str,
                         choices=['PAMAP2', 'MHEALTH', None], 
                         help='Name of the labelled dataset for training and fine-tuning')
-    parser.add_argument('--unlabelled_dataset', default='MHEALTH', type=str, 
+    parser.add_argument('--unlabelled_dataset', default='PAMAP2', type=str, 
                         choices=['PAMAP2', 'MHEALTH', None], 
                         help='Name of the unlabelled dataset to self-training and self-supervised training, ignored if only supervised training is performed.')
     # TODO: add an argument for WandB if needed
-    parser.add_argument('--dataset', default="PAMAP2", 
-                        choices=['PAMAP2', 'MHEALTH'], 
-                        help='name of the dataset to be downloaded/processed')
     parser.add_argument('-v','--verbose', default=1, type=int,
                     help='verbosity level')
 
@@ -90,9 +89,10 @@ def pre_processing(data_path, dataset_meta,  train_size=0.8, test_size=0.5):
     df, label_map = map_activity_intensity(df, dataset_meta['label_list'], LABEL_DICT)
     # Normalise data between 0-1:
     df = normalize_data(df, dataset_meta['sensor_labels'])
+    print(df)
     # Create user_list format {user_id: {sensor_vales, activity label}} 
     # # This function is maybe not needed since we are using pandas. 
-    user_dict = extract_user_values(df, dataset_meta["sensor_labels"])
+    # user_dict = extract_user_values(df, dataset_meta["sensor_labels"])
     # Extract window: MaybeDO: transfer to dict first. Will make it 10x faster.
     segments_array, labels = extract_windows(df, window_size=WINDOW_SIZE, overlap=OVERLAP)
     # Partition data -  Split data into 3 datasets and perform one-hot encoding:
@@ -149,8 +149,19 @@ def get_datasets(args, DATASET_METADATA, working_directory):
         print(f'Done pre-processing dataset {dataset}')
 
     print('Done pre-processing all datasets.')
+    return datasets
 
-
+def load_data():
+    '''
+    Helper function. 
+    TODO: Should not be in final code. maybe remove
+    '''
+    datasets = {}
+    with open('test_runs/pre_processed_data/MHEALTHDATASET.pkl', 'rb') as f:
+        datasets['labelled'] = pickle.load(f)
+    with open('test_runs/pre_processed_data/PAMAP2_Dataset.pkl', 'rb') as f:
+        datasets['unlabelled'] = pickle.load(f)
+    return datasets
 
 
 def check_if_model_exsists(run_tag, run_type, models_dir):
@@ -176,11 +187,89 @@ def check_if_model_exsists(run_tag, run_type, models_dir):
    
     return paths
 
-def mix_datasets(datasets):
+def generate_mixed_datasets(datasets, dataset_name = 'mix_unlabelled'):
 
+    if (datasets['labelled']['input_shape'] != datasets['unlabelled']['input_shape'] or
+        datasets['labelled']['output_shape'] != datasets['unlabelled']['output_shape'] or
+        datasets['labelled']['label_map'] != datasets['unlabelled']['label_map']):
+        print('The datasets are not compatible. The program will exit the experiment.')
+        exit(0)
+    datasets[dataset_name] = {}
+    # create new mixed_dataset
+    # TODO: maybe remove labelled data
+    for set in ['train', 'val', 'test']:
+        x_l = datasets['labelled'][set][0]
+        x_u = datasets['unlabelled'][set][0]
+        x_c = np.concatenate((x_l, x_u))
+        shuffle = np.random.permutation(len(x_c))
+        # Extract the labels just for testing
+        y_l = datasets['labelled'][set][1]
+        y_u = datasets['unlabelled'][set][1]
+        y_c = np.concatenate((y_l, y_u))
+        np_value = (x_c[shuffle], y_c[shuffle])
+        datasets[dataset_name][set] = np_value
+     # Add additional dataset info   
+    datasets[dataset_name]['input_shape'] = np_value[0].shape[1:]
+    datasets[dataset_name]['output_shape'] = np_value[1].shape[1:]
+    datasets[dataset_name]['label_map'] = datasets['labelled']['label_map']
 
-    return 
+    return datasets
+def get_predict_data(dataset):
+    # Leave test set out to be able to check performance
+    x_data = (dataset['train'][0],dataset['val'][0])
+    x_data = np.concatenate(x_data)
+    return x_data
 
+def extract_best_class(x_data, y_pred, threshold=0.70, samples_per_class=5000):
+    sample_list = np.full(len(x_data), False, dtype=bool)
+    nr_classes = y_pred.shape[1]
+    print(nr_classes)
+    print('Loop through each class and extracting values above threshold:')
+    for c in range(nr_classes):
+        print(f"---Processing class {c}---")
+        samples_in_class = np.full(len(x_data), True, dtype=bool)
+        # Plurality test:
+        print('Plurality test')
+        print((np.argmax(y_pred, axis=1) == c) & samples_in_class)
+        samples_in_class = (np.argmax(y_pred, axis=1) == c) & samples_in_class
+        print(f"Passes plurality test: {np.sum(samples_in_class)}")
+        # Threshold test:
+        print('Threshold test')
+        samples_in_class = (y_pred[:, c] >= threshold) & samples_in_class
+        print(f"Passes minimum threshold: {np.sum(samples_in_class)}")
+
+        if np.sum(samples_in_class) > samples_per_class:
+            print('Class has more samples than the max number of allowed')
+            # Only set the number of sample per class equal to True, rest False
+            ## All values that are not true is sat to 0 and extract index
+            y_pred_masked =  np.where(samples_in_class,y_pred[:,c], 0 )
+            samples_indicies = np.argpartition(-y_pred_masked, samples_per_class)
+            # Only pick the nr of sample we want:
+            samples_in_class[samples_indicies[:samples_per_class]] = True
+            samples_in_class[samples_indicies[samples_per_class:]] = False
+            print(f'Final number of samples for this class:', np.sum(samples_in_class))
+            print(f'With minimum confidence : {y_pred[samples_indicies[samples_per_class-1],c]}')
+
+        # Add selected samples to the overall sample list:
+        sample_list = samples_in_class | sample_list
+        print('Total number of samples:', np.sum(sample_list))
+
+    
+    return x_data[sample_list], y_pred[sample_list]
+
+def self_labeling(datasets, teacher_model):
+    # TODO: Predict label
+    print('Running Selflabeling of the mixed dataset')
+    print(teacher_model.summary())
+    unlabelled_mix = get_predict_data(datasets['mix_unlabelled'])
+    print(unlabelled_mix.shape)
+    unlabelled_pred_prob = teacher_model.predict(unlabelled_mix, batch_size=352)
+
+    print(unlabelled_pred_prob)
+    print(unlabelled_pred_prob.shape)
+    self_labelled_data = extract_best_class(unlabelled_mix, unlabelled_pred_prob, threshold=0.50,)
+    print(self_labelled_data[1])
+    return self_labelled_data
 ###################################################################################
 # Basic DL Steps:
 # 1) Analyse and pre-processing data
@@ -203,10 +292,9 @@ if __name__ == '__main__':
     # extact input args:
     working_directory = args.working_directory
     verbose = args.verbose
-    dataset = args.dataset
-    mode = args.mode
-    print('mode: ', mode)
-    
+    dataset_l = args.labelled_dataset
+    dataset_u = args.unlabelled_dataset
+  
     # Dataset info:
     with open('DATASET_META.json') as json_file:
         DATASET_METADATA = json.load(json_file)
@@ -215,27 +303,29 @@ if __name__ == '__main__':
     if not os.path.exists(models_dir):
         os.mkdir(models_dir)
     # Load datasets and do necessary preprocessing:
-    datasets = get_datasets(args, DATASET_METADATA, working_directory)
-
+    # datasets = get_datasets(args, DATASET_METADATA, working_directory)
+    datasets = load_data()
+    print('Dataset length:')
+    print(len(datasets['labelled']['train'][0]))
+    print(len(datasets['unlabelled']['train'][0]))
     
-                    
-    # print(datasets['labelled'])
-    # #TODO: remove 
-    # with open('Data/PAMAP2_pre_processed.pkl', 'wb') as f:
-    #    pickle.dump(datasets['labelled'],f)
+    # Check label distribution:
 
-    with open('Data/PAMAP2_pre_processed.pkl', 'rb') as f:
-        datasets['labelled'] = pickle.load(f)
+
 
     #################################################
-    print('Loading model configurations and starting experiments.')   
-    # TODO: Load configuration
+    print('Loading experiement configurations.')   
+    # Load configuration
     with open(args.config, 'r') as f:
         config_file = json.load(f)
     exp_tag = config_file['tag']
     experiments = config_file['experiment_configs']
 
+    # Run experiments:
     for run in experiments:
+        # Clean directory
+        gc.collect()
+        tf.keras.backend.clear_session()
         type = run['type']
         tag = f"{current_time_string}_{type}_{run ['tag']}"
         prev_model = run['tag']
@@ -250,7 +340,7 @@ if __name__ == '__main__':
         # Load model
         if type =='SL_model':
             # STEP 1
-            print(f'Creating a SL_model from labelled dataset {dataset}.')
+            print(f'Creating a SL_model from labelled dataset {dataset_l}.')
             tune = run['hp_tune']
             # TODO: choose if used only labelled data or unlabelled data for tuning
             # If one eants to tune the model with hyperparameter tuning algorithm
@@ -270,6 +360,13 @@ if __name__ == '__main__':
                 path = os.path.join(models_dir,f'{tag}_best.pkl')
                 with open(path, 'wb') as f:
                         pickle.dump(best_hp, f)
+                # Remove wandb folder:
+                path = 'wandb'
+                try:
+                    shutil.rmtree(path)
+                    print(f'Folder {path} was removed')
+                except OSError as e:
+                    print ("Error: %s - %s." % (e.filename, e.strerror))
 
             # Train the model with optimised hyperparameters and longer epochs
             if run['full_train']:
@@ -283,57 +380,108 @@ if __name__ == '__main__':
                 else:
                     model_path = paths[0]
                     hp_path = paths[1]
-                print(f'Training old SL_model on Dataset {dataset}')
-                model = train_model(model_path, hp_path,
+                print(f'Training old SL_model on Dataset {dataset_l}')
+                model_name = run['teacher_name']
+                model = train_model(
                             datasets['labelled']['train'],
                             datasets['labelled']['val'],
                             datasets['labelled']['test'],
-                            datasets['labelled']['label_map'].keys(),
-                            max_epochs=10,
+                            model_path =model_path, 
+                            hp_path=hp_path,
+                            nr_epochs=10,
+                            classes=datasets['labelled']['label_map'].keys(),
                             eval=True,
-                            run_wandb=True
-                            )
-                model.save(os.path.join(models_dir,'full_train_'+dataset+'.hdf5'))
+                            run_wandb=True,
+                            name = model_name)
+                            
+                model.save(os.path.join(models_dir, model_name+'.hdf5'))
 
 
         elif type == 'Full_SSL_model':
-            # TODO: Check if model exists and if not create model. 
+            # Check if model exists and if not create model. 
             print('Checking if a teacher model exists')
-            # Check if model exists
             print(run['teacher_name'])
             paths = check_if_model_exsists(run['teacher_name'], type, models_dir)
             if paths == None:
+                # TODO: Create model or exit experiment
+                print(f'There exist no teacher model for labelled dataset {dataset_l}')
+                print('Need to run a SL_model experiment with full training.')
                 continue
             else:
                 model_path = paths[0]
                 print(f'Loading model: {model_path}')
                 teacher_model = load_model(path=model_path)
-            teacher_model.summary()
+            
+            if run['test_performance']:
 
+                print(f'Test performance for model on unlabelled data')
+                print('This function is only used for testing with labelled data')
+                evaluate_model(teacher_model, datasets['unlabelled']['test'])
+                # scores = teacher_model.evaluate(datasets['unlabelled']['test'][0], 
+                #                                 datasets['unlabelled']['test'][1])
+                # for metric, s in zip(teacher_model.metrics_names,scores):
+                #     print(f'{metric}: {s*100:.2f}%')
 
             # STEP 2: create a mix dataset from labelled dataset D and unlabelled
             # dataset U after removing labels from dataset D. This crates dataset B
-            # TODO: create function mix_dataset
-            dataset_u = mix_datasets(datasets)
+            # create function mix_dataset
+            print(f'Mixing labelled dataset {dataset_l} and unlabelled dataset{dataset_u}')
+            datasets = generate_mixed_datasets(datasets)
             # STEP 3: Pesudo-labelling of dataset B.
             # Two possibilities:
-                # 1) Simple self-labeling: run teacher model.predict on dataset B 
-                # and label every window with a score higher than treshold T.
-                # Every labelled window goes into a new dataset S.
-                # TODO: Create function and give back dataset S and prosentage from
-                # dataset D
+            # 1) Simple self-labeling: run teacher model.predict on dataset B 
+            # and label every window with a score higher than treshold T.
+            # Every labelled window goes into a new dataset S.
+            # Create function and give back dataset S and prosentage from
+            # dataset D
+            print(f'Running simple Self-Labeling')
+            self_labelled_data = self_labeling(datasets, teacher_model)
+            if run['transform_data']:
+                print('Create transform function to agumentate data')
+            else:
+                print('Use predicted labels as training input.')
+                print('Split data into training and validation set:')
+                X_train, X_val, y_train, y_val = train_test_split(self_labelled_data[0],
+                                                self_labelled_data[1],
+                                                test_size=0.1, random_state=42)
+                self_training_set = (X_train, y_train)
+                self_val_set = (X_val, y_val)
                 
-                # 2) Autoencoder self-labeling: Create a autoencoder model from the 
-                # unlabelled dataset U. Cluster the entire dataset B and use the 
-                # teacher model on each cluster. Every Sample in the cluster with 
-                # a precision higher than K(<T) is labelled and inserted into
-                #  dataset S.
-            # STEP 4: augmentation afrom signal transformaation
+
+            # TODO
+            # 2) Autoencoder self-labeling: Create a autoencoder model from the 
+            # unlabelled dataset U. Cluster the entire dataset B and use the 
+            # teacher model on each cluster. Every Sample in the cluster with 
+            # a precision higher than K(<T) is labelled and inserted into
+            #  dataset S.
+            # TODO
+            # STEP 4: augmentation a from signal transformaation
                 # Adding nosie, scaling by a random scaler, 3D rotation, inverting signal
                 # reversing direction of time, random scrambling or stretching.
                 # combine samples into a larger dataset D'
+            # TODO: Class imbalance: balanse the class
             # STEP 5:Train a Student model on Dataset D' and fine tune the model
-            # STEP 6: Evaluate on dataset D for confirmation.
+            #  Testing: Train student model on dataset
+            student_name = 'student_self_train_'+dataset_l
+            student_model = train_model(self_training_set, self_val_set, 
+                                existing_model=False,
+                                hp=run["hyperparameters"], 
+                                nr_epochs=10,
+                                classes=datasets['labelled']['label_map'].keys(),
+                                # STEP 6: Evaluate on dataset D for confirmation.  
+                                eval=True, 
+                                test_set=datasets['unlabelled']['test'],
+                                run_wandb=True,
+                                name = student_name)
+            ## save model:
+            student_model.save(os.path.join(models_dir, student_name+'.hdf5'))
+
+
+            # STEP 6: Evaluate on dataset D for confirmation.                            
+            # if run['test_performance']:
+            #     print(f'Test performance for model on unlabelled data')
+            #     print('This function is only used for testing with labelled data')
+            #     evaluate_model(student_model, datasets['unlabelled']['test'])
             break
         elif type == 'SSL_model':
             print('Run whole process (All steps)')

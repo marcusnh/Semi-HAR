@@ -13,13 +13,23 @@ from sklearn import metrics
 import json
 import time
 
+from pre_processing_util import map_activity_intensity
+
+LABEL_DICT = {
+    'low_int': [['lying', 'sitting','standing', 'watching TV', 'computer work',
+                'car driving', 'ironing', 'folding laundry', 'frontal elevation of arms',
+                 'waist bends forward'],0],
+    'medium_int': [['walking', 'nordic walking',"ascending stairs","descending stairs",
+     'vacuum cleaning','house cleaning', 'crouching'],1],
+    'high_int': [['running', 'jogging', 'cycling', 'playing soccer', 'rope jumping', 'jumping',
+    ],2]
+}
 
 
 def total_activities(data):
     sns.set_style('whitegrid')
     # data['activity'].value_counts().plot(kind='bar', title='Number of acitivity samples')
-    sns.countplot(x='activity', data=data)
-    plt.show()
+    sns.countplot(x='activity_id', data=data)
 
 def sample_extraction(data):
     data = data[0:128]
@@ -49,7 +59,7 @@ def activity_data_per_user(data):
 
 def activity_wise_dist(data, column):
     sns.set_palette("Set1", desat=0.80)
-    facetgrid = sns.FacetGrid(data, hue='activity')
+    facetgrid = sns.FacetGrid(data, hue='activity_id')
     facetgrid.map(sns.kdeplot, column ).add_legend()
    
 
@@ -91,11 +101,11 @@ def show_activity(data, activity, user_id, start = 0, samples=None):
 def plot_activity(data, activity, user_id):
 
     # Show single activity for a spesific user
-    user_data = data[data['user_id']==user_id]
-    user_data = user_data.drop(columns=['timestamp', 'user_id'])
+    user_data = data[data['subject_id']==user_id]
+    user_data = user_data.drop(columns=[ 'subject_id'])
     print('\nNumber of samples per activity:')
-    print(user_data['activity'].value_counts())
-    user_data = user_data[user_data['activity']==activity]
+    print(user_data['activity_id'].value_counts())
+    user_data = user_data[user_data['activity_id']==activity]
     title = activity+' for user: ' +str(user_id)
     user_data.plot(title=title, )
     plt.legend(loc='upper right')
@@ -152,6 +162,7 @@ def confusion_matrix(vali, predict, LABELS, normalize=False):
     if normalize:
         matrix = matrix.astype('float') / matrix.sum(axis=1)[:, np.newaxis]
     fmt = '.2f' if normalize else 'd'
+    print(matrix)
     plt.figure( figsize=(6, 4))
     sns.heatmap(matrix, cmap='coolwarm', linecolor='white',linewidths=1, 
                 xticklabels=LABELS, yticklabels=LABELS, annot=True, fmt=fmt)
@@ -280,10 +291,19 @@ if __name__ == "__main__":
         
     print('Run Test')
     start_time = time.time()
-    path = 'Data/Deltaker_02_01_24h_g2_preprocessed.hdf'
+    # path = 'Data/Deltaker_02_01_24h_g2_preprocessed.hdf'
+    path = 'test_runs/processed_data/MHEALTH_activity.pkl'
+    data = pd.read_pickle(path)
+    total_activities(data)
+    plt.show()
+    path = 'test_runs/processed_data/PAMAP2_activity.pkl'
+    data2 = pd.read_pickle(path)
+    total_activities(data2)
+    plt.show()
+
     # process data and save to pickle
     # Engine.put("ray")
     # ray.init()
-    hypersension_process_files(path, DATASET_METADATA['Hypersension'])
+    # hypersension_process_files(path, DATASET_METADATA['Hypersension'])
     print('Runtime:')
     print("--- %s seconds ---" % (time.time() - start_time))

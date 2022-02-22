@@ -87,12 +87,10 @@ def extract_windows(data, window_size, overlap=0.5):
         hr_bpm = data['HR (bpm)'].values[i: i + window_size]
         # temp = data['temp'].values[i: i + window_size]
 
-
         values.append([acc_x, acc_y, acc_z, hr_bpm])
         # values.append([acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z, mag_x, mag_y,
         #                 mag_z, hr_bpm, temp ])
-  
-
+   
     # reshape into an array with x rows and columns equal to window_size, and seperate for each feature 
     segments_reshaped = np.asarray(values, 
                         dtype=np.float32).reshape(-1, window_size, 
