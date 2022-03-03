@@ -12,7 +12,30 @@
         "along with this program. If not, see <https://www.gnu.org/licenses/>."
     ],
     "tag": "test_SL_model",
-    "experiment_configs": [
+    "experiment_configs": [       
+    {
+        "type": "SL_model",
+        "tag": "Labelled_hp_training_tuning",
+        "teacher_name": "full_train_MHEALTH",
+        "hyperparameters":{
+            "group_name": "SL_model_labelled_tuning",
+            "neurons":{ "min_value":32,
+                        "max_value":512,
+                         "step": 32},
+            "leanring_rate":{"values":[1e-2, 1e-3, 1e-4]},
+            "optimizer": ["adam"],
+            "batch_size":{ "min_value":32,
+                        "max_value":512,
+                         "step": 32,
+                        "default": 62},
+            "epochs": 10
+
+            },
+        
+        "hp_tune": false,
+        "use_unlabelled": true,
+        "full_train": true
+    },
 
         {
             "type": "Full_SSL_model",
@@ -20,7 +43,7 @@
             "teacher_name": "full_train_MHEALTH",
             "previous_model": 0,
             "hyperparameters":{
-                "name": "self_labelled_tuning",
+                "group_name": "self_labelled_tuning",
                 "neurons":{ "min_value":32,
                             "max_value":512,
                              "step": 32},

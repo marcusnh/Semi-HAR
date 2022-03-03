@@ -48,6 +48,15 @@ def extract_user_values(df, columns):
         users_dict[user]=[(data_values,labels)]
     return users_dict
 
+def count_activities(df):
+    counts = {}
+    for i, count in enumerate(df['activity_id'].value_counts()):
+        print(f'For class {i+1}: {count} ({count/len(df)*100:.1f}%)')
+        counts[i] = count
+    return counts
+    
+
+
 
 def extract_windows(data, window_size, overlap=0.5):
     '''

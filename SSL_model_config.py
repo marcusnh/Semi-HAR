@@ -8,10 +8,49 @@ Model to create_model and configurate it after need.
 import keras
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten, Reshape, Embedding, LSTM
-from keras.layers import Conv1D, MaxPooling1D
+from keras.layers import Conv1D, MaxPooling1D, GlobalMaxPool1D, Reshape
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
 import tensorflow as tf
+
+def create_base_model(hp, input_shape=(50,4), output_shape=3, use_max_pooling=False):
+    '''
+    Architecture for the HAR base model:
+
+    Parameters:
+
+    Output:
+    tf.keras.model
+    '''
+
+
+    # hyperparameters:
+    hp_neurons = hp.Int('units_hp', min_value = 32, max_value = 512, step = 32)
+    hp_learning_rate = hp.Choice('learning_rate', values = [1e-2, 1e-3, 1e-4])
+
+    # inputs = tf.keras.Input(shape=input_shape, name='input')
+    model = Sequential()
+    model.add(Conv1D(filters=64, kernel_size=24, activation='relu', 
+                   #  kernel_regularizer=tf.keras.regularizers.l1_l2(),
+                   input_shape=input_shape))
+    if use_max_pooling:
+        print('MaxPooling1D')
+        model.add(MaxPooling1D(pool_size=8, padding='valid', data_format='channels_last'))
+    
+    else:
+        model.add(GlobalMaxPool1D(data_format='channels_last'))
+
+
+    model.add(Dense(units=hp_neurons, activation='relu'))
+    model.add(Dense(output_shape,  activation='softmax'))
+
+    opt = tf.keras.optimizers.Adam(learning_rate=hp_learning_rate)
+
+    model.compile(loss='categorical_crossentropy', optimizer=opt, 
+                 metrics = ['accuracy'])
+    return model
+
+
 
 def create_DNN_model(hp,input_shape=(50, 4), output_shape=3, 
                     model_name='test_model'):
@@ -42,6 +81,7 @@ def create_DNN_model(hp,input_shape=(50, 4), output_shape=3,
     model.add(Flatten())
     model.add(Dense(3, activation='softmax'))
 
+    
     if hp.Choice('optimizer', ['adam', 'sgd']) == 'adam':
         opt = tf.keras.optimizers.Adam(learning_rate=hp_learning_rate)
         print('USING ADAM')

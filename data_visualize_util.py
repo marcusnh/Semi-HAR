@@ -28,8 +28,12 @@ LABEL_DICT = {
 
 def total_activities(data):
     sns.set_style('whitegrid')
+    sns.color_palette("Paired")
     # data['activity'].value_counts().plot(kind='bar', title='Number of acitivity samples')
-    sns.countplot(x='activity_id', data=data)
+    sns.countplot(x='activity_id', data=data, palette='Paired')
+    for i, count in enumerate(data['activity_id'].value_counts()):
+        print(f'For class {i+1}: {count} ({count/len(data)*100:.1f}%)')
+    plt.show()
 
 def sample_extraction(data):
     data = data[0:128]
@@ -58,9 +62,10 @@ def activity_data_per_user(data):
     plt.show()
 
 def activity_wise_dist(data, column):
-    sns.set_palette("Set1", desat=0.80)
-    facetgrid = sns.FacetGrid(data, hue='activity_id')
+    # sns.set_palette("Set1", desat=0.80)
+    facetgrid = sns.FacetGrid(data, hue='activity_id', palette='Paired')
     facetgrid.map(sns.kdeplot, column ).add_legend()
+    plt.show()
    
 
 
@@ -292,14 +297,19 @@ if __name__ == "__main__":
     print('Run Test')
     start_time = time.time()
     # path = 'Data/Deltaker_02_01_24h_g2_preprocessed.hdf'
-    path = 'test_runs/processed_data/MHEALTH_activity.pkl'
+    path = 'test_runs/processed_data/MHEALTH_processed.pkl'
     data = pd.read_pickle(path)
     total_activities(data)
-    plt.show()
-    path = 'test_runs/processed_data/PAMAP2_activity.pkl'
+    activity_wise_dist(data,'HR (bpm)')
+
+    activity_wise_dist(data,'acc_y')
+    path = 'test_runs/processed_data/PAMAP2_processed.pkl'
     data2 = pd.read_pickle(path)
     total_activities(data2)
-    plt.show()
+    activity_wise_dist(data2,'HR (bpm)')
+    activity_wise_dist(data2,'acc_y')
+
+
 
     # process data and save to pickle
     # Engine.put("ray")

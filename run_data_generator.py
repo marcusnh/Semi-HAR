@@ -11,6 +11,7 @@ from sys import get_asyncgen_hooks
 from venv import create
 from webbrowser import get
 from processing_raw_data import *
+
 __author__ = "Marcus Notø"
 
 '''
@@ -29,7 +30,7 @@ def get_parser():
     parser.add_argument('--mode', default='process', 
                         choices=['download', 'process', 'download_and_process'],
                         help='Which mode to run for the script.\ndownload: download the dataset(s).\nprocess: process the donwloaded dataset(s)')
-    parser.add_argument('--dataset', default='MHEALTH', 
+    parser.add_argument('--dataset', default='PAMAP2', 
                         choices=['PAMAP2', 'MHEALTH', 'all'], 
                         help='name of the dataset to be downloaded/processed')
     parser.add_argument('--data_directory', default='', 
@@ -156,7 +157,7 @@ if __name__ == '__main__':
                 download_data(dataset_directory_orginal, DATASET_METADATA[dataset])
             except Exception as e:
                 print('Failed to download dataset: ', e)
-        print('Done Downloading')
+        print(f"-------- Done downloading datasets --------")
 
     if args.mode == 'process' or args.mode == 'download_and_process':
         # TODO: Do some data processing depending on the dataset

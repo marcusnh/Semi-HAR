@@ -34,6 +34,7 @@ def PAMAP2_process_files(data_files_path, dataset_meta):
     for sub_folder in (sub_folders):
         for file in os.scandir(os.path.join(data_files_path,sub_folder)):
             if file.is_file():
+                print(file.path)
                 df = pd.read_csv(file.path, header=None, sep=' ', engine='python')
                 
                 # Add wanted columns and names
@@ -130,7 +131,7 @@ def MHEALTH_process_files(data_files_path, dataset_meta):
     # Combine dataframes:
     MHEALTH_df = pd.concat(df_list)
     MHEALTH_df.to_csv('Data/MHEALTH.csv')
-
+    
     # print meory usage:
     print(MHEALTH_df.info(memory_usage="deep"))
     print(MHEALTH_df['subject_id'].value_counts())

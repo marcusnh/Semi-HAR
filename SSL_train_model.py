@@ -10,9 +10,9 @@ import wandb
 from wandb.keras import WandbCallback
 from data_visualize_util import show_performance, history_plot, confusion_matrix
 
-from SL_model_config import load_model, create_DNN_model
+from SSL_model_config import load_model, create_DNN_model, create_base_model
 from SSL_tune_model import run_tuner
-from SSL_utilities import remove_folder
+from SSL_utilities import class_weights, remove_folder, get_weights
 ''''
 Description:
 '''
@@ -31,13 +31,14 @@ def train_model(training_set, val_set, test_set=None, model_path=None,
   
     # Load model and hp:
     if existing_model:
+        
         model = load_model(path=model_path)
         with open(hp_path, 'rb') as f:
             hp = pickle.load(f)
         print('hp:', hp.values)
     else:
         print(f'Creating new model and starts hyperparamter tuning')
-        model, hp = run_tuner(create_DNN_model, 
+        model, hp = run_tuner(create_base_model, 
                                 training_set,
                                 val_set,
                                 hp=hp,
@@ -58,6 +59,7 @@ def train_model(training_set, val_set, test_set=None, model_path=None,
                         epochs=nr_epochs, # TODO: change for final test
                         callbacks=callbacks_list, 
                         validation_data=val_set, 
+                        class_weight=get_weights(training_set[1]),
                         verbose=1)
     history_plot(history)
 
@@ -65,8 +67,7 @@ def train_model(training_set, val_set, test_set=None, model_path=None,
         evaluate_model(model,test_set, classes=classes)
     else:
         print('The model was not evaluated on a Test set')
-    # Remove wandb folder:
-    remove_folder(path='wandb')
+   
     return model
     
  
@@ -84,3 +85,22 @@ def evaluate_model(model, test_set, classes=None ):
     score = model.evaluate(test_set[0], test_set[1])
     for metric, s in zip(model.metrics_names,score):
         print(f'{metric}: {s*100:.2f}%')
+    '''
+         # Get metrics
+        accuracy = accuracy_score(y_test, model.predict(x_test))
+        precision = precision_score(y_test, model.predict(x_test))
+        recall = recall_score(y_test, model.predict(x_test))
+        f1score = f1_score(y_test, model.predict(x_test))
+    '''
+
+    '''
+    # ROC plot and precision-recall curve:
+    from scikitplot.metrics import plot_roc
+    from scikitplot.metrics import plot_precision_recall
+    y_score = model.predict_proba(test_set[0])
+    # Plot metrics 
+    plot_roc(y_test, y_score)
+    plt.show()
+    plot_precision_recall(y_test, y_score)
+    plt.show()  
+    '''

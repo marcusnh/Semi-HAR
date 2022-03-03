@@ -14,7 +14,8 @@ import wandb
 from wandb.keras import WandbCallback
 import pickle
 
-from SL_model_config import *
+from SSL_model_config import *
+from SSL_utilities import class_weights, get_weights
 
 MODEL_PATH = 'wandb'
 class Model_Tuner(kt.Tuner):
@@ -30,12 +31,18 @@ class Model_Tuner(kt.Tuner):
         
         # Add hyperparameters:
         # TODO: use hyperparameter fict to set remaining hp
-        if 'batch_size' in hyperparameters.keys() and hyperparameters!=None:
-            bs = hyperparameters['batch_size']
-            batch_size = trial.hyperparameters.Int('batch_size',min_value = bs['min_value'], 
-                                                    max_value = bs['max_value'], 
-                                                    step = bs['step'], 
-                                                    default=bs['default'])
+        if hyperparameters !=None:
+            if 'batch_size' in hyperparameters.keys():
+                bs = hyperparameters['batch_size']
+                batch_size = trial.hyperparameters.Int('batch_size',min_value = bs['min_value'], 
+                                                        max_value = bs['max_value'], 
+                                                        step = bs['step'], 
+                                                        default=bs['default'])
+        
+            if 'optimizer'in hyperparameters.keys():
+                opti_list = hyperparameters['optimizer']
+                optimizer = trial.hyperparameters.Choice('optimizer', opti_list)
+
         
         hp = trial.hyperparameters
         ## create the model with the current trial hyperparameters
@@ -43,7 +50,7 @@ class Model_Tuner(kt.Tuner):
         print(wandb.util.generate_id())
         ## Initiates new run for each trial on the dashboard of Weights & Biases
         run = wandb.init(project="Semi-Har",
-                        group=hyperparameters['name'],
+                        group=hyperparameters['group_name'],
                          config=hp.values)
 
         ## WandbCallback() logs all the metric data such as
@@ -54,12 +61,13 @@ class Model_Tuner(kt.Tuner):
             WandbCallback(monitor='val_loss')
         ]
         ## loss, accuracy and etc on dashboard for visualization
-
+        class_weights = get_weights(trainY)
         history = model.fit(trainX,
                   trainY,
                   batch_size=batch_size,
                   epochs=hyperparameters['epochs'],
                   validation_data=(testX,testY),
+                #   class_weight = class_weights,
                 #   validation_ratio=0.1,
                   callbacks=[WandbCallback()])  
 
@@ -100,7 +108,7 @@ def  run_tuner(model, training_data, test_data, hp, run_wandb=True):
     if run_wandb:
         ## set the objective of tuning algorithm
         objective = 'val_accuracy'
-        run_path = os.path.join(MODEL_PATH, hp["name"])
+        run_path = os.path.join(MODEL_PATH, hp["group_name"])
         if not os.path.exists(run_path):
             os.mkdir(run_path)
 
@@ -133,10 +141,10 @@ def  run_tuner(model, training_data, test_data, hp, run_wandb=True):
     
     # evaluate model on given dataset:
     model = tuner.hypermodel.build(best_hyperparameter)
-    history = model.fit(trainX,trainY, epochs=5,)
+    history = model.fit(trainX,trainY, epochs=hp['epochs']+10, 
+                        class_weight=get_weights(trainY))
     _, acc = model.evaluate(testX, testY, verbose=0)
-    model.summary()
-    print('> %.3f'%(acc*100))
+    print('Accuray of best tuned model --> %.3f'%(acc*100))
     return model, best_hyperparameter
 
 
@@ -152,7 +160,7 @@ if __name__ =='__main__':
     print('start')
     with open('Data/PAMAP2_pre_processed.pkl', 'rb') as f:
         dataset = pickle.load(f)
-    hp = {  "name": "SL_model_labelled_tuning",
+    hp = {  "group_name": "SL_model_labelled_tuning",
             'epochs':10, 
             "batch_size":{ "min_value":32,
                             "max_value":512,
