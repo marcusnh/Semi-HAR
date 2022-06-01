@@ -22,8 +22,8 @@ Inside of the experiment configuration you can choose to use [WandB](https://wan
 Example of running a experiment:
 
 ```
-python3  run_SSL.py --labelled_dataset MEALTH --unlabelled_dataset PAMAP2
+python3  run_trans_har.py --labelled_dataset MEALTH --unlabelled_dataset PAMAP2
 ```
 
-run_SSL.py is for the moment not complete for the full semi-supervised experiment.
+run_trans_har.py is for the moment not complete for the full transfer learning approach.
 
