@@ -192,3 +192,11 @@ def ECG_to_HR(df, sample_rate=50):
     # plt.show()
 
     return df
+
+def sensor_orientation_MHEALTH(df):
+    acc_x_new = df['acc_y']
+    acc_y_new = df['acc_x']
+    df_new = df.copy()
+    df_new['acc_x'] = acc_x_new
+    df_new['acc_y'] = acc_y_new
+    return df_new
